@@ -114,19 +114,19 @@ pub(crate) fn view_instance_generic(
         {
             ctx.data_path_button_to(
                 ui,
-                format!("Annotation Context at {}", data_path.obj_path),
+                format!("Class descriptions at {}", data_path.obj_path),
                 &data_path,
             );
             egui::Grid::new("class_description")
                 .striped(true)
                 .num_columns(2)
                 .show(ui, |ui| {
-                    if let Some(class_description) = annotations.context.class_map.get(&class_id) {
-                        let class_annotation = &class_description.info;
+                    if let Some(class) = annotations.classes.get(class_id.0 as usize) {
+                        let class_annotation = &class.info;
                         let mut keypoint_annotation = None;
 
                         if let Some(keypoint_id) = keypoint_id {
-                            keypoint_annotation = class_description.keypoint_map.get(&keypoint_id);
+                            keypoint_annotation = class.keypoint_map.get(&keypoint_id);
                             if keypoint_annotation.is_none() {
                                 ui.label(ctx.design_tokens.warning_text(
                                     format!("unknown keypoint_id {}", keypoint_id.0),
@@ -162,7 +162,7 @@ pub(crate) fn view_instance_generic(
                 });
         } else {
             ui.label(ctx.design_tokens.warning_text(
-                "class_id specified, but no annotation context found",
+                "class_id specified, but no class descriptions found",
                 ui.style(),
             ));
         }
@@ -439,7 +439,7 @@ pub(crate) fn ui_data(
             Preview::Medium => ui_transform(ui, transform),
         },
         Data::ViewCoordinates(coordinates) => ui_view_coordinates(ui, coordinates),
-        Data::AnnotationContext(context) => ui_annotation_context(ui, context),
+        Data::ClassDescription(class) => ui_class_descriptions(ui, &[class.clone()]), // TODO: single view should be different from multiview
 
         Data::Tensor(tensor) => {
             let tensor_view = ctx.cache.image.get_view(tensor);
@@ -562,20 +562,20 @@ fn ui_annotation_info_table<'a>(
         });
 }
 
-fn ui_annotation_context(ui: &mut egui::Ui, context: &AnnotationContext) -> egui::Response {
+fn ui_class_descriptions(ui: &mut egui::Ui, classes: &[ClassDescription]) -> egui::Response {
     ui.vertical(|ui| {
-        ui_annotation_info_table(ui, context.class_map.iter().map(|(_, class)| &class.info));
+        ui_annotation_info_table(ui, classes.iter().map(|class| &class.info));
 
-        for (id, class) in &context.class_map {
+        for class in classes {
             if class.keypoint_connections.is_empty() && class.keypoint_map.is_empty() {
                 continue;
             }
 
             ui.separator();
-            ui.heading(format!("Keypoints for Class {}", id.0));
+            ui.heading(format!("Keypoints for Class {}", class.info.id));
             if !class.keypoint_connections.is_empty() {
                 ui.heading("Keypoints Annotations");
-                ui.push_id(format!("keypoint_annotations_{}", id.0), |ui| {
+                ui.push_id(format!("keypoint_annotations_{}", class.info.id), |ui| {
                     ui_annotation_info_table(
                         ui,
                         class
@@ -587,7 +587,7 @@ fn ui_annotation_context(ui: &mut egui::Ui, context: &AnnotationContext) -> egui
             }
             if !class.keypoint_connections.is_empty() {
                 ui.heading("Keypoints Connections");
-                ui.push_id(format!("keypoints_connections_{}", id.0), |ui| {
+                ui.push_id(format!("keypoints_connections_{}", class.info.id), |ui| {
                     let table = TableBuilder::new(ui)
                         .striped(true)
                         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))

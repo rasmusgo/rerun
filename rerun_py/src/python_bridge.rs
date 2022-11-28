@@ -12,10 +12,7 @@ use pyo3::{
     types::PyList,
 };
 
-use re_log_types::{
-    context::{ClassId, KeypointId},
-    LoggedData, *,
-};
+use re_log_types::{context::KeypointId, LoggedData, *};
 
 use crate::sdk::Sdk;
 
@@ -124,7 +121,7 @@ fn rerun_sdk(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(log_path, m)?)?;
     m.add_function(wrap_pyfunction!(log_line_segments, m)?)?;
     m.add_function(wrap_pyfunction!(log_obb, m)?)?;
-    m.add_function(wrap_pyfunction!(log_annotation_context, m)?)?;
+    m.add_function(wrap_pyfunction!(log_class_descriptions, m)?)?;
 
     m.add_function(wrap_pyfunction!(log_tensor_u8, m)?)?;
     m.add_function(wrap_pyfunction!(log_tensor_u16, m)?)?;
@@ -1697,27 +1694,20 @@ impl From<AnnotationInfoTuple> for context::AnnotationInfo {
 type ClassDescriptionTuple = (AnnotationInfoTuple, Vec<AnnotationInfoTuple>, Vec<u16>);
 
 #[pyfunction]
-fn log_annotation_context(
+fn log_class_descriptions(
     obj_path: &str,
     class_descriptions: Vec<ClassDescriptionTuple>,
     timeless: bool,
 ) -> PyResult<()> {
     let mut sdk = Sdk::global();
 
-    // We normally disallow logging to root, but we make an exception for class_descriptions
-    let obj_path = if obj_path == "/" {
-        ObjPath::root()
-    } else {
-        parse_obj_path(obj_path)?
-    };
+    let obj_path = parse_obj_path(obj_path)?;
+    sdk.register_type(obj_path.obj_type_path(), ObjectType::ClassDescription);
 
-    let mut annotation_context = AnnotationContext::default();
-
-    for (info, keypoint_annotations, keypoint_skeleton_edges) in class_descriptions {
-        annotation_context
-            .class_map
-            .entry(ClassId(info.0))
-            .or_insert_with(|| context::ClassDescription {
+    let class_descriptions = class_descriptions
+        .into_iter()
+        .map(
+            |(info, keypoint_annotations, keypoint_skeleton_edges)| context::ClassDescription {
                 info: info.into(),
                 keypoint_map: keypoint_annotations
                     .into_iter()
@@ -1727,15 +1717,19 @@ fn log_annotation_context(
                     .chunks_exact(2)
                     .map(|pair| (KeypointId(pair[0]), KeypointId(pair[1])))
                     .collect(),
-            });
-    }
+            },
+        )
+        .collect::<Vec<ClassDescription>>();
 
     let time_point = time(timeless);
 
     sdk.send_data(
         &time_point,
-        (&obj_path, "_annotation_context"),
-        LoggedData::Single(Data::AnnotationContext(annotation_context)),
+        (&obj_path, "class_description"),
+        LoggedData::Batch {
+            indices: BatchIndex::SequentialIndex(class_descriptions.len()),
+            data: DataVec::ClassDescription(class_descriptions),
+        },
     );
 
     Ok(())

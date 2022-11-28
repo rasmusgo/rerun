@@ -246,7 +246,7 @@ impl Scene3D {
                 // Generate keypoint connections if any.
                 let instance_id_hash = InstanceIdHash::from_path_and_index(obj_path, IndexHash::NONE);
                 for (class_id, keypoints_in_class) in &keypoints {
-                    let Some(class_description) = annotations.context.class_map.get(class_id) else {
+                    let Some(class_description) = annotations.classes.get(class_id.0 as usize) else {
                         continue;
                     };
 

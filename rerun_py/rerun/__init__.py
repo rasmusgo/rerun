@@ -1122,13 +1122,14 @@ def coerce_class_descriptor_like(arg: ClassDescriptionLike) -> ClassDescription:
         return ClassDescription(info=arg)  # type: ignore[arg-type]
 
 
-def log_annotation_context(
+def log_class_descriptions(
     obj_path: str,
     class_descriptions: Union[ClassDescriptionLike, Iterable[ClassDescriptionLike]],
     *,
     timeless: bool = True,
 ) -> None:
     """
+    TODO: Fix doc
     Log an annotation context made up of a collection of ClassDescriptions.
 
     Any object needing to access the annotation context will find it by searching the
@@ -1188,7 +1189,7 @@ def log_annotation_context(
         for d in typed_class_descriptions
     ]
 
-    rerun_sdk.log_annotation_context(obj_path, tuple_class_descriptions, timeless)
+    rerun_sdk.log_class_descriptions(obj_path, tuple_class_descriptions, timeless)
 
 
 def set_visible(obj_path: str, visibile: bool) -> None:

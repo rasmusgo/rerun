@@ -4,7 +4,7 @@ use ahash::HashMap;
 
 /// A 16-bit ID representing a type of semantic class.
 ///
-/// Used to look up a [`ClassDescription`] within the [`AnnotationContext`].
+/// Used to look up a [`ClassDescription`] on a multi object.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClassId(pub u16);
@@ -13,7 +13,7 @@ pub struct ClassId(pub u16);
 ///
 /// `KeypointId`s are only meaningful within the context of a [`ClassDescription`].
 ///
-/// Used to look up an [`AnnotationInfo`] for a Keypoint within the [`AnnotationContext`].
+/// Used to look up an [`AnnotationInfo`] for a Keypoint within the [`ClassDescription`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeypointId(pub u16);
@@ -55,18 +55,4 @@ pub struct ClassDescription {
     /// This indicates that an edge line should be drawn between two Keypoints.
     /// Typically used for skeleton edges.
     pub keypoint_connections: Vec<(KeypointId, KeypointId)>,
-}
-
-/// The `AnnotationContext` provides aditional information on how to display
-/// entities.
-///
-/// Entities can use `ClassId`s and `KeypointId`s to provide annotations, and
-/// the labels and colors will be looked up in the appropriate
-/// `AnnotationContext`. We use the *first* annotation context we find in the
-/// path-hierarchy when searching up through the ancestors of a given object
-/// path.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct AnnotationContext {
-    pub class_map: HashMap<ClassId, ClassDescription>,
 }

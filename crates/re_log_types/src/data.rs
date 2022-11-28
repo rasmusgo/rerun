@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{impl_into_enum, AnnotationContext, ObjPath, ViewCoordinates};
+use crate::{context::ClassDescription, impl_into_enum, ObjPath, ViewCoordinates};
 
 // ----------------------------------------------------------------------------
 
@@ -40,7 +40,7 @@ pub enum DataType {
 
     Transform,
     ViewCoordinates,
-    AnnotationContext,
+    ClassDescription,
 }
 
 // ----------------------------------------------------------------------------
@@ -169,9 +169,9 @@ pub mod data_types {
         }
     }
 
-    impl DataTrait for crate::AnnotationContext {
+    impl DataTrait for crate::ClassDescription {
         fn data_typ() -> DataType {
-            DataType::AnnotationContext
+            DataType::ClassDescription
         }
     }
 }
@@ -215,7 +215,7 @@ pub enum Data {
 
     Transform(Transform),
     ViewCoordinates(ViewCoordinates),
-    AnnotationContext(AnnotationContext),
+    ClassDescription(ClassDescription),
 }
 
 impl Data {
@@ -244,7 +244,7 @@ impl Data {
 
             Self::Transform(_) => DataType::Transform,
             Self::ViewCoordinates(_) => DataType::ViewCoordinates,
-            Self::AnnotationContext(_) => DataType::AnnotationContext,
+            Self::ClassDescription(_) => DataType::ClassDescription,
         }
     }
 }
@@ -260,7 +260,7 @@ impl_into_enum!(Mesh3D, Data, Mesh3D);
 impl_into_enum!(ObjPath, Data, ObjPath);
 impl_into_enum!(Transform, Data, Transform);
 impl_into_enum!(ViewCoordinates, Data, ViewCoordinates);
-impl_into_enum!(AnnotationContext, Data, AnnotationContext);
+impl_into_enum!(ClassDescription, Data, ClassDescription);
 
 // ----------------------------------------------------------------------------
 
@@ -293,7 +293,7 @@ pub enum DataVec {
 
     Transform(Vec<Transform>),
     ViewCoordinates(Vec<ViewCoordinates>),
-    AnnotationContext(Vec<AnnotationContext>),
+    ClassDescription(Vec<ClassDescription>),
 }
 
 /// Do the same thing with all members of a [`Data`].
@@ -324,7 +324,7 @@ macro_rules! data_map(
             $crate::Data::ObjPath($value) => $action,
             $crate::Data::Transform($value) => $action,
             $crate::Data::ViewCoordinates($value) => $action,
-            $crate::Data::AnnotationContext($value) => $action,
+            $crate::Data::ClassDescription($value) => $action,
         }
     });
 );
@@ -408,8 +408,8 @@ macro_rules! data_type_map_none(
                 let $value = Option::<$crate::ViewCoordinates>::None;
                 $action
             },
-            $crate::DataType::AnnotationContext => {
-                let $value = Option::<$crate::AnnotationContext>::None;
+            $crate::DataType::ClassDescription => {
+                let $value = Option::<$crate::ClassDescription>::None;
                 $action
             },
         }
@@ -444,7 +444,7 @@ macro_rules! data_vec_map(
             $crate::DataVec::ObjPath($vec) => $action,
             $crate::DataVec::Transform($vec) => $action,
             $crate::DataVec::ViewCoordinates($vec) => $action,
-            $crate::DataVec::AnnotationContext($vec) => $action,
+            $crate::DataVec::ClassDescription($vec) => $action,
         }
     });
 );
@@ -475,7 +475,7 @@ impl DataVec {
 
             Self::Transform(_) => DataType::Transform,
             Self::ViewCoordinates(_) => DataType::ViewCoordinates,
-            Self::AnnotationContext(_) => DataType::AnnotationContext,
+            Self::ClassDescription(_) => DataType::ClassDescription,
         }
     }
 
@@ -503,7 +503,7 @@ impl DataVec {
 
             DataType::Transform => Self::Transform(vec![]),
             DataType::ViewCoordinates => Self::ViewCoordinates(vec![]),
-            DataType::AnnotationContext => Self::AnnotationContext(vec![]),
+            DataType::ClassDescription => Self::ClassDescription(vec![]),
         }
     }
 
@@ -539,7 +539,7 @@ impl DataVec {
 
             Self::Transform(vec) => vec.last().cloned().map(Data::Transform),
             Self::ViewCoordinates(vec) => vec.last().cloned().map(Data::ViewCoordinates),
-            Self::AnnotationContext(vec) => vec.last().cloned().map(Data::AnnotationContext),
+            Self::ClassDescription(vec) => vec.last().cloned().map(Data::ClassDescription),
         }
     }
 
@@ -814,7 +814,7 @@ pub enum TensorDataMeaning {
     /// Default behavior: guess based on shape
     Unknown,
     /// The data is an annotated [`crate::context::ClassId`] which should be
-    /// looked up using the appropriate [`crate::context::AnnotationContext`]
+    /// looked up using the appropriate [`crate::context::ClassDescription`]
     ClassId,
 }
 

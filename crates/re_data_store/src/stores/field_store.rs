@@ -54,7 +54,7 @@ impl<Time: 'static + Copy + Ord> FieldStore<Time> {
         }
     }
 
-    pub(crate) fn get_multi<T: DataTrait>(&self) -> Result<&MultiFieldStore<Time, T>> {
+    pub fn get_multi<T: DataTrait>(&self) -> Result<&MultiFieldStore<Time, T>> {
         if let Some(history) = self.data_store.downcast_ref::<MultiFieldStore<Time, T>>() {
             Ok(history)
         } else if self.mono {
@@ -173,8 +173,8 @@ impl<Time: 'static + Copy + Ord> FieldStore<Time> {
             DataType::ViewCoordinates => {
                 handle_type!(ViewCoordinates, re_log_types::ViewCoordinates)
             }
-            DataType::AnnotationContext => {
-                handle_type!(AnnotationContext, re_log_types::AnnotationContext)
+            DataType::ClassDescription => {
+                handle_type!(ClassDescription, re_log_types::ClassDescription)
             }
             DataType::DataVec => handle_type!(DataVec, DataVec),
         }
@@ -227,8 +227,8 @@ impl<Time: 'static + Copy + Ord> FieldStore<Time> {
             DataType::ViewCoordinates => {
                 handle_type!(ViewCoordinates, re_log_types::ViewCoordinates);
             }
-            DataType::AnnotationContext => {
-                handle_type!(AnnotationContext, re_log_types::AnnotationContext);
+            DataType::ClassDescription => {
+                handle_type!(ClassDescription, re_log_types::ClassDescription);
             }
             DataType::DataVec => handle_type!(DataVec, DataVec),
         }
@@ -288,7 +288,7 @@ impl<Time: 'static + Copy + Ord, T: DataTrait> MonoFieldStore<Time, T> {
 // ----------------------------------------------------------------------------
 
 /// Stores the history of a multi-field.
-pub(crate) struct MultiFieldStore<Time, T> {
+pub struct MultiFieldStore<Time, T> {
     pub(crate) history: BTreeMap<(Time, MsgId), BatchOrSplat<T>>,
 }
 
@@ -314,5 +314,16 @@ impl<Time: 'static + Copy + Ord, T: DataTrait> MultiFieldStore<Time, T> {
     pub fn purge_everything_but(&mut self, keep_msg_ids: &ahash::HashSet<MsgId>) {
         let Self { history } = self;
         history.retain(|(_, msg_id), _| keep_msg_ids.contains(msg_id));
+    }
+
+    /// Get the latest value at the given time
+    pub fn latest_at<'s>(
+        &'s self,
+        query_time: &'_ Time,
+    ) -> Option<(&'s Time, &'s MsgId, &'s BatchOrSplat<T>)> {
+        let Some(((time, msg_id), batch_or_splat)) = self.history.range(..=(*query_time, MsgId::MAX)).rev().next()
+                else { return None };
+
+        Some((time, msg_id, batch_or_splat))
     }
 }

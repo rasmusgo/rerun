@@ -1,8 +1,9 @@
+use ahash::{HashMap, HashMapExt};
 use lazy_static::lazy_static;
 use re_data_store::{FieldName, ObjPath};
 use re_log_types::{
     context::{AnnotationInfo, ClassDescription, ClassId, KeypointId},
-    AnnotationContext, DataPath, MsgId,
+    DataPath, MsgId,
 };
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -11,13 +12,13 @@ use crate::{misc::ViewerContext, ui::scene::SceneQuery};
 #[derive(Clone, Debug)]
 pub struct Annotations {
     pub msg_id: MsgId,
-    pub context: AnnotationContext,
+    pub classes: Vec<ClassDescription>,
 }
 
 impl Annotations {
     pub fn class_description(&self, class_id: Option<ClassId>) -> ResolvedClassDescription<'_> {
         ResolvedClassDescription(
-            class_id.and_then(|class_id| self.context.class_map.get(&class_id)),
+            class_id.and_then(|class_id| self.classes.get(class_id.0 as usize)),
         )
     }
 }
@@ -99,20 +100,58 @@ pub struct AnnotationMap(pub BTreeMap<ObjPath, Arc<Annotations>>);
 impl AnnotationMap {
     pub(crate) fn load(&mut self, ctx: &mut ViewerContext<'_>, query: &SceneQuery<'_>) {
         crate::profile_function!();
+        let field_name = FieldName::from("class_description");
 
-        for (obj_path, field_store) in
-            query.iter_ancestor_meta_field(ctx.log_db, &FieldName::from("_annotation_context"))
+        let mut found_annotations = HashMap::new();
+
+        // Gather all class description batch ancestors for all visible object paths.
+        for obj_path in query
+            .obj_paths
+            .iter()
+            .filter(|obj_path| query.obj_props.get(obj_path).visible)
         {
-            if let Ok(mono_field_store) = field_store.get_mono::<re_log_types::AnnotationContext>()
-            {
-                mono_field_store.query(&query.time_query, |_time, msg_id, context| {
-                    self.0.entry(obj_path.clone()).or_insert_with(|| {
-                        Arc::new(Annotations {
-                            msg_id: *msg_id,
-                            context: context.clone(),
-                        })
-                    });
-                });
+            let mut next_parent = Some(obj_path.clone());
+            while let Some(parent) = next_parent {
+                // If we've visited this parent before it's safe to break early.
+                // All of it's parents have have also been visited.
+                if self.0.contains_key(&parent) {
+                    break;
+                }
+
+                if let Some(field_store) = ctx
+                    .log_db
+                    .obj_db
+                    .store
+                    .get(&query.timeline)
+                    .and_then(|timeline_store| timeline_store.get(&parent))
+                    .and_then(|obj_store| obj_store.get(&field_name))
+                {
+                    // It's only an annotation list if we have a multi field of class descriptions
+                    if let Ok(multi_field_store) =
+                        field_store.get_multi::<re_log_types::ClassDescription>()
+                    {
+                        // TODO(andreas): Early ou on the first succesful query.
+                        multi_field_store.query(
+                            &query.time_query,
+                            |_time, msg_id, batch_or_splat| {
+                                if let re_data_store::BatchOrSplat::Batch(batch) = batch_or_splat {
+                                    let annotations = found_annotations
+                                        .entry(parent.clone())
+                                        .or_insert_with(|| {
+                                            Arc::new(Annotations {
+                                                msg_id: *msg_id,
+                                                classes: batch.values().cloned().collect(),
+                                            })
+                                        });
+                                    self.0.insert(obj_path.clone(), annotations.clone());
+                                }
+                            },
+                        );
+                        break;
+                    }
+                }
+
+                next_parent = parent.parent();
             }
         }
     }
@@ -124,20 +163,23 @@ impl AnnotationMap {
         let timeline = ctx.rec_cfg.time_ctrl.timeline();
         let timeline_store = ctx.log_db.obj_db.store.get(timeline)?;
         let query_time = ctx.rec_cfg.time_ctrl.time()?.floor().as_i64();
-        let field_name = FieldName::from("_annotation_context");
+        let field_name = FieldName::from("class_description");
 
         let annotation_context_for_path = |obj_path: &ObjPath| {
             let field_store = timeline_store.get(obj_path)?.get(&field_name)?;
-            // `_annotation_context` is only allowed to be stored in a mono-field.
-            let mono_field_store = field_store
-                .get_mono::<re_log_types::AnnotationContext>()
+            // it's only an annotation list if we have a multi field of class descriptions
+            let multi_field_store = field_store
+                .get_multi::<re_log_types::ClassDescription>()
                 .ok()?;
-            let (_, msg_id, context) = mono_field_store.latest_at(&query_time)?;
+            let (_, msg_id, re_data_store::BatchOrSplat::Batch(batch)) = multi_field_store.latest_at(&query_time)? else {
+                return None;
+            };
+
             Some((
                 DataPath::new(obj_path.clone(), field_name),
                 Annotations {
                     msg_id: *msg_id,
-                    context: context.clone(),
+                    classes: batch.values().cloned().collect(),
                 },
             ))
         };
@@ -176,7 +218,7 @@ lazy_static! {
     static ref MISSING_ANNOTATIONS: Arc<Annotations> = {
         Arc::new(Annotations {
             msg_id: MISSING_MSG_ID,
-            context: Default::default(),
+            classes: Vec::new(),
         })
     };
 }

@@ -24,8 +24,8 @@ DATASET_URL_BASE: Final = "https://storage.googleapis.com/rerun-example-datasets
 def track_pose(video_path: str) -> None:
     mp_pose = mp.solutions.pose
 
-    rr.log_annotation_context(
-        "/",
+    rr.log_class_descriptions(
+        "classifications",
         rr.ClassDescription(
             info=rr.AnnotationInfo(label="Person"),
             keypoint_annotations=[rr.AnnotationInfo(id=l.value, label=l.name) for l in mp_pose.PoseLandmark],
