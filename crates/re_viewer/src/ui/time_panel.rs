@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, ops::RangeInclusive};
+use std::ops::RangeInclusive;
 
 use egui::{
     lerp, pos2, remap, remap_clamp, show_tooltip_at_pointer, Align2, Color32, CursorIcon, Id,
@@ -7,6 +7,7 @@ use egui::{
 use itertools::Itertools;
 
 use re_data_store::{InstanceId, ObjectTree};
+use re_int_histogram::Int64Histogram;
 use re_log_types::{
     DataPath, Duration, ObjPathComp, Time, TimeInt, TimeRange, TimeRangeF, TimeReal, TimeType,
 };
@@ -409,7 +410,7 @@ impl TimePanel {
         // show the data in the time area:
 
         if is_visible && is_closed {
-            let empty = BTreeMap::default();
+            let empty = Int64Histogram::default();
             let num_messages_at_time = tree
                 .prefix_times
                 .get(ctx.rec_cfg.time_ctrl.timeline())
@@ -518,11 +519,11 @@ impl TimePanel {
 
                 // show the data in the time area:
                 if is_visible {
-                    let empty_messages_over_time = BTreeMap::default();
+                    let empty = Int64Histogram::default();
                     let messages_over_time = data
                         .times
                         .get(ctx.rec_cfg.time_ctrl.timeline())
-                        .unwrap_or(&empty_messages_over_time);
+                        .unwrap_or(&empty);
 
                     show_data_over_time(
                         ctx,
@@ -584,7 +585,7 @@ fn show_data_over_time(
     time_area_painter: &egui::Painter,
     ui: &mut egui::Ui,
     num_timeless_messages: usize,
-    num_messages_at_time: &BTreeMap<TimeInt, usize>,
+    num_messages_at_time: &Int64Histogram,
     full_width_rect: Rect,
     time_ranges_ui: &TimeRangesUi,
     select_on_click: Selection,
