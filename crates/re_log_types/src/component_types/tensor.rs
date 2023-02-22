@@ -743,7 +743,7 @@ fn test_concat_and_slice() {
             size: 4,
             name: None,
         }],
-        data: TensorData::JPEG(vec![1, 2, 3, 4]),
+        data: TensorData::JPEG(vec![1, 2, 3, 4].into()),
         meaning: TensorDataMeaning::Unknown,
         meter: Some(1000.0),
     }];
@@ -754,7 +754,7 @@ fn test_concat_and_slice() {
             size: 4,
             name: None,
         }],
-        data: TensorData::JPEG(vec![5, 6, 7, 8]),
+        data: TensorData::JPEG(vec![5, 6, 7, 8].into()),
         meaning: TensorDataMeaning::Unknown,
         meter: None,
     }];
