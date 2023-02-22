@@ -604,7 +604,7 @@ impl Tensor {
                 TensorDimension::width(w as _),
                 TensorDimension::depth(3),
             ],
-            data: TensorData::JPEG(jpeg_bytes),
+            data: TensorData::JPEG(jpeg_bytes.into()),
             meaning: TensorDataMeaning::Unknown,
             meter: None,
         })
