@@ -155,7 +155,7 @@ impl ArrowDeserialize for TensorId {
 #[derive(Clone, Debug, PartialEq, ArrowField, ArrowSerialize, ArrowDeserialize)]
 #[arrow_field(type = "dense")]
 pub enum TensorData {
-    U8(Vec<u8>),
+    U8(Buffer<u8>),
     U16(Buffer<u16>),
     U32(Buffer<u32>),
     U64(Buffer<u64>),
@@ -169,7 +169,7 @@ pub enum TensorData {
     //F16(Vec<arrow2::types::f16>),
     F32(Buffer<f32>),
     F64(Buffer<f64>),
-    JPEG(Vec<u8>),
+    JPEG(Buffer<u8>),
 }
 
 /// Flattened `Tensor` data payload
@@ -624,9 +624,9 @@ impl Tensor {
         let (w, h) = (image.width(), image.height());
 
         let (depth, data) = match image {
-            image::DynamicImage::ImageLuma8(image) => (1, TensorData::U8(image.into_raw())),
-            image::DynamicImage::ImageRgb8(image) => (3, TensorData::U8(image.into_raw())),
-            image::DynamicImage::ImageRgba8(image) => (4, TensorData::U8(image.into_raw())),
+            image::DynamicImage::ImageLuma8(image) => (1, TensorData::U8(image.into_raw().into())),
+            image::DynamicImage::ImageRgb8(image) => (3, TensorData::U8(image.into_raw().into())),
+            image::DynamicImage::ImageRgba8(image) => (4, TensorData::U8(image.into_raw().into())),
             image::DynamicImage::ImageLuma16(image) => {
                 (1, TensorData::U16(image.into_raw().into()))
             }
