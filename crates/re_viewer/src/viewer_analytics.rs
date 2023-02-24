@@ -6,6 +6,9 @@
 #[cfg(all(not(target_arch = "wasm32"), feature = "analytics"))]
 use re_analytics::{Analytics, Event, Property};
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "analytics"))]
+use re_log_types::RecordingSource;
+
 pub struct ViewerAnalytics {
     // NOTE: Optional because it is possible to have the `analytics` feature flag enabled
     // while at the same time opting-out of analytics at run-time.
@@ -46,6 +49,14 @@ impl ViewerAnalytics {
             analytics.register_append_property(name, property);
         }
     }
+
+    /// Deregister a property.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "analytics"))]
+    fn deregister(&mut self, name: &'static str) {
+        if let Some(analytics) = &mut self.analytics {
+            analytics.deregister_append_property(name);
+        }
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -53,28 +64,46 @@ impl ViewerAnalytics {
 /// Here follows all the analytics collected by the Rerun Viewer.
 #[cfg(all(not(target_arch = "wasm32"), feature = "analytics"))]
 impl ViewerAnalytics {
-    pub fn on_viewer_started(&self) {
-        // TODO(cmc): start_method
-        //
-        // We want to know (I think..?):
-        // - Loading rrd (either URL or file, whatever)
-        // - Standalone boot, waiting for network data
-        // - Standalone boot, feeding from another server (??)
-        // - SDK boot, show()
-        // - SDK book, spawn()
+    /// When the viewer is first started
+    pub fn on_viewer_started(&mut self, app_env: crate::AppEnvironment) {
+        use crate::AppEnvironment;
+        let app_env_str = match app_env {
+            AppEnvironment::PythonSdk(_) => "python_sdk",
+            AppEnvironment::RustSdk { rust_version: _ } => "rust_sdk",
+            AppEnvironment::RerunCli { rust_version: _ } => "rerun_cli",
+            AppEnvironment::Web => "web",
+        };
+        self.register("app_env", app_env_str.to_owned());
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "analytics"))]
         if let Some(analytics) = &self.analytics {
             let rerun_version = env!("CARGO_PKG_VERSION");
-            let rust_version = env!("CARGO_PKG_RUST_VERSION");
             let target = re_analytics::TARGET_TRIPLET;
             let git_hash = re_analytics::GIT_HASH;
 
             let mut event = Event::update("update_metadata".into())
                 .with_prop("rerun_version".into(), rerun_version.to_owned())
-                .with_prop("rust_version".into(), rust_version.to_owned())
                 .with_prop("target".into(), target.to_owned())
-                .with_prop("git_hash".into(), git_hash.to_owned());
+                .with_prop("git_hash".into(), git_hash.to_owned())
+                .with_prop("debug".into(), cfg!(debug_assertions).to_owned()) // debug-build?
+                .with_prop("rerun_workspace".into(), std::env::var("IS_IN_RERUN_WORKSPACE").is_ok()) // proxy for "user checked out the project and built it from source"
+                ;
+
+            // If we happen to know the Python or Rust version used on the _host machine_, i.e. the
+            // machine running the viewer, then add it to the permanent user profile.
+            //
+            // The Python/Rust versions appearing in user profiles always apply to the host
+            // environment, _not_ the environment in which the data logging is taking place!
+            match &app_env {
+                AppEnvironment::RustSdk { rust_version }
+                | AppEnvironment::RerunCli { rust_version } => {
+                    event = event.with_prop("rust_version".into(), rust_version.clone());
+                }
+                _ => {}
+            }
+            if let AppEnvironment::PythonSdk(version) = app_env {
+                event = event.with_prop("python_version".into(), version.to_string());
+            }
 
             // Append opt-in metadata.
             // In practice this is the email of Rerun employees
@@ -90,29 +119,65 @@ impl ViewerAnalytics {
         self.record(Event::append("viewer_started".into()));
     }
 
-    pub fn on_new_recording(&mut self, msg: &re_log_types::BeginRecordingMsg) {
-        // We hash the application_id and recording_id unless this is an official example.
-        // That's because we want to be able to track which are the popular examples,
-        // but we don't want to collect actual application ids.
-        self.register("application_id", {
-            let prop = Property::from(msg.info.application_id.0.clone());
-            if msg.info.is_official_example {
-                prop
-            } else {
-                prop.hashed()
+    /// When we have loaded the start of a new recording.
+    pub fn on_open_recording(&mut self, log_db: &re_data_store::LogDb) {
+        if let Some(rec_info) = log_db.recording_info() {
+            // We hash the application_id and recording_id unless this is an official example.
+            // That's because we want to be able to track which are the popular examples,
+            // but we don't want to collect actual application ids.
+            self.register("application_id", {
+                let prop = Property::from(rec_info.application_id.0.clone());
+                if rec_info.is_official_example {
+                    prop
+                } else {
+                    prop.hashed()
+                }
+            });
+            self.register("recording_id", {
+                let prop = Property::from(rec_info.recording_id.to_string());
+                if rec_info.is_official_example {
+                    prop
+                } else {
+                    prop.hashed()
+                }
+            });
+
+            let recording_source = match &rec_info.recording_source {
+                RecordingSource::Unknown => "unknown".to_owned(),
+                RecordingSource::PythonSdk(_version) => "python_sdk".to_owned(),
+                RecordingSource::RustSdk { rust_version: _ } => "rust_sdk".to_owned(),
+                RecordingSource::Other(other) => other.clone(),
+            };
+
+            // If we happen to know the Python or Rust version used on the _recording machine_,
+            // then append it to all future events.
+            //
+            // The Python/Rust versions appearing in events always apply to the recording
+            // environment, _not_ the environment in which the viewer is running!
+            if let RecordingSource::RustSdk { rust_version } = &rec_info.recording_source {
+                self.register("rust_version", rust_version.to_string());
+                self.deregister("python_version"); // can't be both!
             }
-        });
-        self.register("recording_id", {
-            let prop = Property::from(msg.info.recording_id.to_string());
-            if msg.info.is_official_example {
-                prop
-            } else {
-                prop.hashed()
+            if let RecordingSource::PythonSdk(version) = &rec_info.recording_source {
+                self.register("python_version", version.to_string());
+                self.deregister("rust_version"); // can't be both!
             }
-        });
-        self.register("recording_source", msg.info.recording_source.to_string());
-        self.register("is_official_example", msg.info.is_official_example);
-        self.record(Event::append("data_source_opened".into()));
+
+            self.register("recording_source", recording_source);
+            self.register("is_official_example", rec_info.is_official_example);
+        }
+
+        if let Some(data_source) = &log_db.data_source {
+            let data_source = match data_source {
+                re_smart_channel::Source::File { .. } => "file", // .rrd
+                re_smart_channel::Source::Sdk => "sdk",          // show()
+                re_smart_channel::Source::WsClient { .. } => "ws_client", // spawn()
+                re_smart_channel::Source::TcpServer { .. } => "tcp_server", // connect()
+            };
+            self.register("data_source", data_source.to_owned());
+        }
+
+        self.record(Event::append("open_recording".into()));
     }
 }
 
@@ -121,6 +186,6 @@ impl ViewerAnalytics {
 // When analytics are disabled:
 #[cfg(not(all(not(target_arch = "wasm32"), feature = "analytics")))]
 impl ViewerAnalytics {
-    pub fn on_viewer_started(&self) {}
-    pub fn on_new_recording(&self, _msg: &re_log_types::BeginRecordingMsg) {}
+    pub fn on_viewer_started(&mut self, _app_env: crate::AppEnvironment) {}
+    pub fn on_open_recording(&mut self, _log_db: &re_data_store::LogDb) {}
 }
