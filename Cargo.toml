@@ -50,7 +50,9 @@ rerun = { path = "crates/rerun", version = "0.2.0" }
 
 anyhow = "1.0"
 arrow2 = "0.16"
-arrow2_convert = "0.4.2"
+# TODO(jleibs): Land upstream: https://github.com/DataEngineeringLabs/arrow2-convert/pull/104
+# arrow2_convert = "0.4.2"
+arrow2_convert = { git = "https://github.com/rerun-io/arrow2-convert", rev = "93f9f85b55c3a51ea1" }
 clap = "4.0"
 comfy-table = { version = "6.1", default-features = false }
 ecolor = "0.21.0"

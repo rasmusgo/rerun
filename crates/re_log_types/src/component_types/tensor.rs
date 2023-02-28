@@ -137,6 +137,11 @@ impl ArrowDeserialize for TensorId {
 ///                 false
 ///             ),
 ///             Field::new(
+///                 "F16",
+///                 DataType::List(Box::new(Field::new("item", DataType::Float16, false))),
+///                 false
+///             ),
+///             Field::new(
 ///                 "F32",
 ///                 DataType::List(Box::new(Field::new("item", DataType::Float32, false))),
 ///                 false
@@ -166,8 +171,7 @@ pub enum TensorData {
     I32(Buffer<i32>),
     I64(Buffer<i64>),
     // ---
-    // TODO(#854): Native F16 support for arrow tensors
-    //F16(Vec<arrow2::types::f16>),
+    F16(Buffer<arrow2::types::f16>),
     F32(Buffer<f32>),
     F64(Buffer<f64>),
     JPEG(Vec<u8>),
@@ -386,6 +390,7 @@ impl TensorTrait for Tensor {
             TensorData::I16(buf) => Some(TensorElement::I16(buf[offset])),
             TensorData::I32(buf) => Some(TensorElement::I32(buf[offset])),
             TensorData::I64(buf) => Some(TensorElement::I64(buf[offset])),
+            TensorData::F16(buf) => Some(TensorElement::F16(buf[offset])),
             TensorData::F32(buf) => Some(TensorElement::F32(buf[offset])),
             TensorData::F64(buf) => Some(TensorElement::F64(buf[offset])),
             TensorData::JPEG(_) => None, // Too expensive to unpack here.
@@ -402,6 +407,7 @@ impl TensorTrait for Tensor {
             TensorData::I16(_) => TensorDataType::I16,
             TensorData::I32(_) => TensorDataType::I32,
             TensorData::I64(_) => TensorDataType::I64,
+            TensorData::F16(_) => TensorDataType::F16,
             TensorData::F32(_) => TensorDataType::F32,
             TensorData::F64(_) => TensorDataType::F64,
         }
@@ -468,6 +474,10 @@ impl From<&Tensor> for ClassicTensor {
             ),
             TensorData::I64(data) => (
                 crate::TensorDataType::I64,
+                TensorDataStore::Dense(Arc::from(bytemuck::cast_slice(data.as_slice()))),
+            ),
+            TensorData::F16(data) => (
+                crate::TensorDataType::F16,
                 TensorDataStore::Dense(Arc::from(bytemuck::cast_slice(data.as_slice()))),
             ),
             TensorData::F32(data) => (
@@ -572,15 +582,23 @@ tensor_type!(i16, I16);
 tensor_type!(i32, I32);
 tensor_type!(i64, I64);
 
+tensor_type!(arrow2::types::f16, F16);
 tensor_type!(f32, F32);
 tensor_type!(f64, F64);
 
-// TODO(#854) Switch back to `tensor_type!` once we have F16 tensors
+// Support for `half::f16` instead of `arrow2::types::f16`
 impl<'a> TryFrom<&'a Tensor> for ::ndarray::ArrayViewD<'a, half::f16> {
     type Error = TensorCastError;
 
-    fn try_from(_: &'a Tensor) -> Result<Self, Self::Error> {
-        Err(TensorCastError::F16NotSupported)
+    fn try_from(value: &'a Tensor) -> Result<Self, Self::Error> {
+        let shape: Vec<_> = value.shape.iter().map(|d| d.size as usize).collect();
+
+        if let TensorData::F16(data) = &value.data {
+            ndarray::ArrayViewD::from_shape(shape, bytemuck::cast_slice(data.as_slice()))
+                .map_err(|err| TensorCastError::BadTensorShape { source: err })
+        } else {
+            Err(TensorCastError::TypeMismatch)
+        }
     }
 }
 

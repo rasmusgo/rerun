@@ -391,6 +391,17 @@ impl AsDynamicImage for ClassicTensor {
                             }
                         }
                     }
+                    (1, TensorDataType::F16, _) => {
+                        let l: &[half::f16] = bytemuck::cast_slice(bytes);
+                        let colors: Vec<u8> = l
+                            .iter()
+                            .copied()
+                            .map(|f| linear_u8_from_linear_f32(f.to_f32()))
+                            .collect();
+                        image::GrayImage::from_raw(width, height, colors)
+                            .context("Bad Luminance f16")
+                            .map(DynamicImage::ImageLuma8)
+                    }
                     (1, TensorDataType::F32, _) => {
                         let l: &[f32] = bytemuck::cast_slice(bytes);
                         let colors: Vec<u8> =
@@ -408,6 +419,21 @@ impl AsDynamicImage for ClassicTensor {
                         Rgb16Image::from_raw(width, height, bytemuck::cast_slice(bytes).to_vec())
                             .context("Bad RGB16 image")
                             .map(DynamicImage::ImageRgb16)
+                    }
+                    (3, TensorDataType::F16, _) => {
+                        let rgb: &[[half::f16; 3]] = bytemuck::cast_slice(bytes);
+                        let colors: Vec<u8> = rgb
+                            .iter()
+                            .flat_map(|&[r, g, b]| {
+                                let r = gamma_u8_from_linear_f32(r.to_f32());
+                                let g = gamma_u8_from_linear_f32(g.to_f32());
+                                let b = gamma_u8_from_linear_f32(b.to_f32());
+                                [r, g, b]
+                            })
+                            .collect();
+                        image::RgbImage::from_raw(width, height, colors)
+                            .context("Bad RGB f16")
+                            .map(DynamicImage::ImageRgb8)
                     }
                     (3, TensorDataType::F32, _) => {
                         let rgb: &[[f32; 3]] = bytemuck::cast_slice(bytes);
