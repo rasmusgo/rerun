@@ -4156,6 +4156,7 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
+ "ctrlc",
  "document-features",
  "futures-util",
  "glob",
@@ -4254,6 +4255,7 @@ dependencies = [
  "backtrace",
  "clap 4.1.4",
  "crossbeam",
+ "ctrlc",
  "document-features",
  "egui",
  "itertools",
