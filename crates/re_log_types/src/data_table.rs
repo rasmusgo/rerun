@@ -682,7 +682,11 @@ impl DataTable {
         } else {
             // NOTE: This is a column of cells, it shouldn't ever fail to concatenate since
             // they share the same underlying type.
-            let data = arrow2::compute::concatenate::concatenate(cell_refs.as_slice())?;
+            let data =
+                arrow2::compute::concatenate::concatenate(cell_refs.as_slice()).map_err(|err| {
+                    re_log::warn_once!("failed to concatenate cells for column {name}");
+                    err
+                })?;
             data_to_lists(column, data)
         };
 
