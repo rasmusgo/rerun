@@ -254,20 +254,20 @@ impl SceneSpatial {
         gpu_readback_identifier: re_renderer::GpuReadbackIdentifier,
         previous_picking_result: &Option<PickingResult>,
         pointer_in_ui: glam::Vec2,
+        pixels_from_points: f32,
         ui_rect: &egui::Rect,
         eye: &Eye,
-        ui_interaction_radius: f32,
     ) -> PickingResult {
         picking::picking(
             render_ctx,
             gpu_readback_identifier,
             previous_picking_result,
             pointer_in_ui,
+            pixels_from_points,
             ui_rect,
             eye,
             &self.primitives,
             &self.ui,
-            ui_interaction_radius,
         )
     }
 }
