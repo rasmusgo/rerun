@@ -15,7 +15,8 @@ version.workspace = true
 [package.metadata.docs.rs]
 all-features = true
 
-
 [dependencies]
 arrow2.workspace = true
 comfy-table.workspace = true
+once_cell = "1.17"
+parking_lot.workspace = true

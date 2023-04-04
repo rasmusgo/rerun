@@ -442,7 +442,7 @@ impl DataTable {
     ///   server.
     ///   Internally, time columns are (de)serialized separately from the rest of the control
     ///   columns for efficiency/QOL concerns: that doesn't change the fact that they are control
-    ///   columns all the same!
+    ///   columnsrall the same!
     /// * Data columns are the one that hold component data.
     ///   They are optional, potentially sparse, and never deserialized on the server-side (not by
     ///   the storage systems, at least).
@@ -861,4 +861,75 @@ impl std::fmt::Display for DataTable {
         )
         .fmt(f)
     }
+}
+
+// ---
+
+#[cfg(not(target_arch = "wasm32"))]
+impl DataTable {
+    /// Crafts a simple but interesting `DataTable`.
+    pub fn example(timeless: bool) -> Self {
+        use crate::{
+            component_types::{ColorRGBA, Label, Point2D},
+            Time,
+        };
+
+        let table_id = MsgId::random();
+
+        let timepoint = |frame_nr: i64| {
+            if timeless {
+                TimePoint::timeless()
+            } else {
+                TimePoint::from([
+                    (Timeline::new_temporal("log_time"), Time::now().into()),
+                    (Timeline::new_sequence("frame_nr"), frame_nr.into()),
+                    (Timeline::new_temporal("frame_nr"), frame_nr.into()),
+                ])
+            }
+        };
+
+        let row0 = {
+            let num_instances = 2;
+            let points: &[Point2D] = &[[10.0, 10.0].into(), [20.0, 20.0].into()];
+            let colors: &[_] = &[ColorRGBA::from_rgb(128, 128, 128)];
+            let labels: &[Label] = &[];
+
+            DataRow::from_cells3(
+                MsgId::random(),
+                "a",
+                timepoint(1),
+                num_instances,
+                (points, colors, labels),
+            )
+        };
+
+        let row1 = {
+            let num_instances = 0;
+            let colors: &[ColorRGBA] = &[];
+
+            DataRow::from_cells1(MsgId::random(), "b", timepoint(1), num_instances, colors)
+        };
+
+        let row2 = {
+            let num_instances = 1;
+            let colors: &[_] = &[ColorRGBA::from_rgb(255, 255, 255)];
+            let labels: &[_] = &[Label("hey".into())];
+
+            DataRow::from_cells2(
+                MsgId::random(),
+                "c",
+                timepoint(2),
+                num_instances,
+                (colors, labels),
+            )
+        };
+
+        DataTable::from_rows(table_id, [row0, row1, row2])
+    }
+}
+
+#[test]
+fn data_table_dump_example() {
+    let table = DataTable::example(false);
+    eprintln!("{table}");
 }
