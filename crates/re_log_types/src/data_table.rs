@@ -97,6 +97,18 @@ impl DataCellColumn {
     pub fn empty(num_rows: usize) -> Self {
         Self(smallvec::smallvec![None; num_rows])
     }
+
+    /// Compute and cache the total (heap) allocated size of each individual underlying
+    /// [`DataCell`].
+    /// This does nothing for cells whose size has already been computed and cached before.
+    ///
+    /// Beware: this is _very_ costly!
+    #[inline]
+    pub fn compute_all_size_bytes(&mut self) {
+        for cell in &mut self.0 {
+            cell.as_mut().map(|cell| cell.compute_size_bytes());
+        }
+    }
 }
 
 // ---
@@ -433,6 +445,18 @@ impl DataTable {
             .iter()
             .fold(TimePoint::timeless(), |acc, tp| acc.union_max(tp))
     }
+
+    /// Compute and cache the total (heap) allocated size of each individual underlying
+    /// [`DataCell`].
+    /// This does nothing for cells whose size has already been computed and cached before.
+    ///
+    /// Beware: this is _very_ costly!
+    #[inline]
+    pub fn compute_all_size_bytes(&mut self) {
+        for column in self.columns.values_mut() {
+            column.compute_all_size_bytes();
+        }
+    }
 }
 
 // --- Serialization ---
@@ -699,10 +723,15 @@ impl DataTable {
 
 impl DataTable {
     /// Deserializes an entire table from an arrow payload and schema.
+    ///
+    /// If `compute_cell_sizes` is enabled, this will estimate the size of the arrow data within
+    /// each cell and cache it there.
+    /// See [`DataCellInner::compute_size_bytes`] for more information.
     pub fn deserialize(
         table_id: TableId,
         schema: &Schema,
         chunk: &Chunk<Box<dyn Array>>,
+        compute_cell_sizes: bool,
     ) -> DataTableResult<Self> {
         crate::profile_function!();
 
@@ -749,7 +778,7 @@ impl DataTable {
                     .get(index)
                     .ok_or(DataTableError::MissingColumn(name.to_owned()))
                     .and_then(|column| {
-                        Self::deserialize_data_column(component, &**column)
+                        Self::deserialize_data_column(component, &**column, compute_cell_sizes)
                             .map(|data| (component, data))
                     })
             })
@@ -767,9 +796,14 @@ impl DataTable {
     }
 
     /// Deserializes a sparse data column.
+    ///
+    /// If `compute_cell_sizes` is enabled, this will estimate the size of the arrow data within
+    /// each cell and cache it there.
+    /// See [`DataCellInner::compute_size_bytes`] for more information.
     fn deserialize_data_column(
         component: ComponentName,
         column: &dyn Array,
+        compute_cell_sizes: bool,
     ) -> DataTableResult<DataCellColumn> {
         Ok(DataCellColumn(
             column
@@ -777,7 +811,15 @@ impl DataTable {
                 .downcast_ref::<ListArray<i32>>()
                 .ok_or(DataTableError::NotAColumn(component.to_string()))?
                 .iter()
-                .map(|array| array.map(|values| DataCell::from_arrow(component, values)))
+                .map(|array| {
+                    array.map(|values| {
+                        let mut cell = DataCell::from_arrow(component, values);
+                        if compute_cell_sizes {
+                            cell.compute_size_bytes(); // WARN: costly!
+                        }
+                        cell
+                    })
+                })
                 .collect(),
         ))
     }
@@ -785,11 +827,14 @@ impl DataTable {
 
 // ---
 
-impl TryFrom<&ArrowMsg> for DataTable {
-    type Error = DataTableError;
-
+impl DataTable {
+    /// Deserializes the contents of an [`ArrowMsg`] into a `DataTable`.
+    ///
+    /// If `compute_cell_sizes` is enabled, this will estimate the size of the arrow data within
+    /// each cell and cache it there.
+    /// See [`DataCellInner::compute_size_bytes`] for more information.
     #[inline]
-    fn try_from(msg: &ArrowMsg) -> DataTableResult<Self> {
+    pub fn from_arrow_msg(msg: &ArrowMsg, compute_cell_sizes: bool) -> DataTableResult<Self> {
         let ArrowMsg {
             table_id,
             timepoint_max: _,
@@ -797,20 +842,19 @@ impl TryFrom<&ArrowMsg> for DataTable {
             chunk,
         } = msg;
 
-        Self::deserialize(*table_id, schema, chunk)
+        Self::deserialize(*table_id, schema, chunk, compute_cell_sizes)
     }
-}
 
-impl TryFrom<&DataTable> for ArrowMsg {
-    type Error = DataTableError;
-
+    /// Serializes the contents of a `DataTable` into an [`ArrowMsg`].
+    //
+    // TODO(#1760): support serializing the cell size itself, so it can be computed on the clients.
     #[inline]
-    fn try_from(table: &DataTable) -> DataTableResult<Self> {
-        let timepoint_max = table.timepoint_max();
-        let (schema, chunk) = table.serialize()?;
+    pub fn as_arrow_msg(&self) -> DataTableResult<ArrowMsg> {
+        let timepoint_max = self.timepoint_max();
+        let (schema, chunk) = self.serialize()?;
 
         Ok(ArrowMsg {
-            table_id: table.table_id,
+            table_id: self.table_id,
             timepoint_max,
             schema,
             chunk,
@@ -895,6 +939,9 @@ impl DataTable {
             )
         };
 
-        DataTable::from_rows(table_id, [row0, row1, row2])
+        let mut table = DataTable::from_rows(table_id, [row0, row1, row2]);
+        table.compute_all_size_bytes();
+
+        table
     }
 }
