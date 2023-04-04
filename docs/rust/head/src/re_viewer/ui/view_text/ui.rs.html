@@ -385,9 +385,6 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
 
 <span class="kw">use </span>egui::{Color32, RichText};
@@ -427,43 +424,40 @@
             row_log_levels,
         } = <span class="kw-2">&amp;mut </span><span class="self">self</span>.filters;
 
-        re_ui
-            .selection_grid(ui, <span class="string">&quot;log_config&quot;</span>)
-            .num_columns(<span class="number">2</span>)
-            .show(ui, |ui| {
-                re_ui.grid_left_hand_label(ui, <span class="string">&quot;Columns&quot;</span>);
-                ui.vertical(|ui| {
-                    <span class="kw">for </span>(timeline, visible) <span class="kw">in </span>col_timelines {
-                        ui.checkbox(visible, timeline.name().to_string());
-                    }
-                    ui.checkbox(col_entity_path, <span class="string">&quot;Entity path&quot;</span>);
-                    ui.checkbox(col_log_level, <span class="string">&quot;Log level&quot;</span>);
-                });
-                ui.end_row();
-
-                re_ui.grid_left_hand_label(ui, <span class="string">&quot;Entity Filter&quot;</span>);
-                ui.vertical(|ui| {
-                    <span class="kw">for </span>(entity_path, visible) <span class="kw">in </span>row_entity_paths {
-                        ui.checkbox(visible, <span class="kw-2">&amp;</span>entity_path.to_string());
-                    }
-                });
-                ui.end_row();
-
-                re_ui.grid_left_hand_label(ui, <span class="string">&quot;Level Filter&quot;</span>);
-                ui.vertical(|ui| {
-                    <span class="kw">for </span>(log_level, visible) <span class="kw">in </span>row_log_levels {
-                        ui.checkbox(visible, level_to_rich_text(ui, log_level));
-                    }
-                });
-                ui.end_row();
-
-                re_ui.grid_left_hand_label(ui, <span class="string">&quot;Text style&quot;</span>);
-                ui.vertical(|ui| {
-                    ui.radio_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>.monospace, <span class="bool-val">false</span>, <span class="string">&quot;Proportional&quot;</span>);
-                    ui.radio_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>.monospace, <span class="bool-val">true</span>, <span class="string">&quot;Monospace&quot;</span>);
-                });
-                ui.end_row();
+        re_ui.selection_grid(ui, <span class="string">&quot;log_config&quot;</span>).show(ui, |ui| {
+            re_ui.grid_left_hand_label(ui, <span class="string">&quot;Columns&quot;</span>);
+            ui.vertical(|ui| {
+                <span class="kw">for </span>(timeline, visible) <span class="kw">in </span>col_timelines {
+                    ui.checkbox(visible, timeline.name().to_string());
+                }
+                ui.checkbox(col_entity_path, <span class="string">&quot;Entity path&quot;</span>);
+                ui.checkbox(col_log_level, <span class="string">&quot;Log level&quot;</span>);
             });
+            ui.end_row();
+
+            re_ui.grid_left_hand_label(ui, <span class="string">&quot;Entity Filter&quot;</span>);
+            ui.vertical(|ui| {
+                <span class="kw">for </span>(entity_path, visible) <span class="kw">in </span>row_entity_paths {
+                    ui.checkbox(visible, <span class="kw-2">&amp;</span>entity_path.to_string());
+                }
+            });
+            ui.end_row();
+
+            re_ui.grid_left_hand_label(ui, <span class="string">&quot;Level Filter&quot;</span>);
+            ui.vertical(|ui| {
+                <span class="kw">for </span>(log_level, visible) <span class="kw">in </span>row_log_levels {
+                    ui.checkbox(visible, level_to_rich_text(ui, log_level));
+                }
+            });
+            ui.end_row();
+
+            re_ui.grid_left_hand_label(ui, <span class="string">&quot;Text style&quot;</span>);
+            ui.vertical(|ui| {
+                ui.radio_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>.monospace, <span class="bool-val">false</span>, <span class="string">&quot;Proportional&quot;</span>);
+                ui.radio_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>.monospace, <span class="bool-val">true</span>, <span class="string">&quot;Monospace&quot;</span>);
+            });
+            ui.end_row();
+        });
     }
 }
 

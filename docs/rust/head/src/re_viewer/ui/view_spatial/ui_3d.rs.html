@@ -740,6 +740,28 @@
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
 </pre><pre class="rust"><code><span class="kw">use </span>eframe::emath::RectTransform;
 <span class="kw">use </span>egui::NumExt <span class="kw">as _</span>;
 <span class="kw">use </span>glam::Affine3A;
@@ -798,6 +820,7 @@
     <span class="comment">// options:
     </span><span class="kw">pub </span>spin: bool,
     <span class="kw">pub </span>show_axes: bool,
+    <span class="kw">pub </span>show_bbox: bool,
 
     <span class="attr">#[serde(skip)]
     </span>last_eye_interact_time: f64,
@@ -819,6 +842,7 @@
             hovered_point: Default::default(),
             spin: <span class="bool-val">false</span>,
             show_axes: <span class="bool-val">false</span>,
+            show_bbox: <span class="bool-val">false</span>,
             last_eye_interact_time: f64::NEG_INFINITY,
             space_specs: Default::default(),
             space_camera: Default::default(),
@@ -1289,6 +1313,26 @@
             InstancePathHash::NONE,
             axis_length,
         );
+    }
+
+    <span class="kw">if </span>state.state_3d.show_bbox {
+        <span class="kw">let </span>bbox = scene.primitives.bounding_box();
+        <span class="kw">if </span>bbox.is_something() &amp;&amp; bbox.is_finite() {
+            <span class="kw">let </span>scale = bbox.size();
+            <span class="kw">let </span>translation = bbox.center();
+            <span class="kw">let </span>bbox_from_unit_cube = glam::Affine3A::from_scale_rotation_translation(
+                scale,
+                Default::default(),
+                translation,
+            );
+            scene
+                .primitives
+                .line_strips
+                .batch(<span class="string">&quot;scene_bbox&quot;</span>)
+                .add_box_outline(bbox_from_unit_cube)
+                .radius(Size::AUTO)
+                .color(egui::Color32::WHITE);
+        }
     }
 
     {

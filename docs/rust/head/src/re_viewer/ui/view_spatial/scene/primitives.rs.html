@@ -203,6 +203,10 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
 </pre><pre class="rust"><code><span class="kw">use </span>egui::Color32;
 <span class="kw">use </span>re_data_store::InstancePathHash;
 <span class="kw">use </span>re_renderer::{
@@ -298,8 +302,8 @@
             line_strips,
             points,
             meshes,
-            depth_clouds: <span class="kw">_</span>, <span class="comment">// no bbox for depth clouds
-            </span>any_outlines: <span class="kw">_</span>,
+            depth_clouds,
+            any_outlines: <span class="kw">_</span>,
         } = <span class="self">self</span>;
 
         <span class="kw-2">*</span>bounding_box = macaw::BoundingBox::nothing();
@@ -337,6 +341,10 @@
             <span class="comment">// TODO(jleibs): is this safe for meshes or should we be doing the equivalent of the above?
             </span><span class="kw-2">*</span>bounding_box =
                 bounding_box.union(mesh.mesh.bbox().transform_affine3(<span class="kw-2">&amp;</span>mesh.world_from_mesh));
+        }
+
+        <span class="kw">for </span>cloud <span class="kw">in </span><span class="kw-2">&amp;</span>depth_clouds.clouds {
+            <span class="kw-2">*</span>bounding_box = bounding_box.union(cloud.bbox());
         }
     }
 
