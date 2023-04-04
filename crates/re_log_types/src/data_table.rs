@@ -243,7 +243,7 @@ impl DataCellColumn {
 /// // eprintln!("{schema:#?}");
 /// eprintln!("Wired chunk:\n{columns:#?}");
 ///
-/// let table_out = DataTable::deserialize(table_id, &schema, &columns).unwrap();
+/// let table_out = DataTable::deserialize(table_id, &schema, &columns, false).unwrap();
 /// eprintln!("Table out:\n{table_out}");
 /// #
 /// # assert_eq!(table_in, table_out);
@@ -726,7 +726,7 @@ impl DataTable {
     ///
     /// If `compute_cell_sizes` is enabled, this will estimate the size of the arrow data within
     /// each cell and cache it there.
-    /// See [`DataCellInner::compute_size_bytes`] for more information.
+    /// See [`DataCell::compute_size_bytes`] for more information.
     pub fn deserialize(
         table_id: TableId,
         schema: &Schema,
@@ -799,7 +799,7 @@ impl DataTable {
     ///
     /// If `compute_cell_sizes` is enabled, this will estimate the size of the arrow data within
     /// each cell and cache it there.
-    /// See [`DataCellInner::compute_size_bytes`] for more information.
+    /// See [`DataCell::compute_size_bytes`] for more information.
     fn deserialize_data_column(
         component: ComponentName,
         column: &dyn Array,
@@ -832,7 +832,7 @@ impl DataTable {
     ///
     /// If `compute_cell_sizes` is enabled, this will estimate the size of the arrow data within
     /// each cell and cache it there.
-    /// See [`DataCellInner::compute_size_bytes`] for more information.
+    /// See [`DataCell::compute_size_bytes`] for more information.
     #[inline]
     pub fn from_arrow_msg(msg: &ArrowMsg, compute_cell_sizes: bool) -> DataTableResult<Self> {
         let ArrowMsg {
